@@ -123,19 +123,19 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             }
         }
 
-        if current_mapping != self.existing_mapping:
-            try:
-                # Make sure the index is there first.
-                self.conn.create_index(self.index_name, self.DEFAULT_SETTINGS)
-                self.conn.put_mapping('modelresult', current_mapping, indexes=[self.index_name])
-                self.existing_mapping = current_mapping
-            except Exception, e:
-                if not self.silently_fail:
-                    raise
+        #if current_mapping != self.existing_mapping:
+        #    try:
+        #        # Make sure the index is there first.
+        #        self.conn.create_index(self.index_name, self.DEFAULT_SETTINGS)
+        #        self.conn.put_mapping('modelresult', current_mapping, indexes=[self.index_name])
+        #        self.existing_mapping = current_mapping
+        #    except Exception, e:
+        #        if not self.silently_fail:
+        #            raise
 
         self.setup_complete = True
 
-    def update(self, index, iterable, commit=True):
+    def _update(self, index, iterable, commit=True):
         if not self.setup_complete:
             try:
                 self.setup()
@@ -177,7 +177,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         if commit:
             self.conn.refresh(indexes=[self.index_name])
 
-    def remove(self, obj_or_string, commit=True):
+    def _remove(self, obj_or_string, commit=True):
         doc_id = get_identifier(obj_or_string)
 
         if not self.setup_complete:
@@ -201,7 +201,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
 
             self.log.error("Failed to remove document '%s' from Elasticsearch: %s", doc_id, e)
 
-    def clear(self, models=[], commit=True):
+    def _clear(self, models=[], commit=True):
         # We actually don't want to do this here, as mappings could be
         # very different.
         # if not self.setup_complete:
@@ -462,7 +462,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
         return kwargs
 
     @log_query
-    def search(self, query_string, **kwargs):
+    def search(self, query_string, mapping = "default", **kwargs):
         if len(query_string) == 0:
             return {
                 'results': [],
@@ -483,7 +483,7 @@ class ElasticsearchSearchBackend(BaseSearchBackend):
             query_params['size'] = kwargs.get('end_offset') - kwargs.get('start_offset', 0)
 
         try:
-            raw_results = self.conn.search(None, search_kwargs, indexes=[self.index_name], doc_types=['modelresult'], **query_params)
+            raw_results = self.conn.search(None, search_kwargs, indexes=[self.index_name], doc_types=[mapping], **query_params)
         except (requests.RequestException, pyelasticsearch.ElasticSearchError), e:
             if not self.silently_fail:
                 raise
